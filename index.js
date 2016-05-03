@@ -17,14 +17,25 @@ var server = app.listen(app.get('port'));
 var io = require('socket.io').listen(server);
 
 io.on('connection', function (socket) {
-  var addedUser, routeId;
+  var addedUser, routeId, rooms = [];
 
   //when client first connects
-  socket.on('add user to van', function (data) {
+  socket.on('add user', function (user) {
     addedUser = true;
-    routeId = data.routeId;
     // store the user in the socket session for this client
-    socket.user = data.user;
+    socket.user = user;
+  });
+
+  // when a user changes route through the application, joins the room
+  socket.on('join room', function (rId) {
+    if(!rId) return;
+    routeId = rId;
+    // when a user is about to join a room, he must leave the rest of the rooms
+    for(var i = 0; i < rooms.length; i++) {
+      socket.leave(rooms[i]);
+    }
+
+    rooms[routeId] = routeId;
     // join the route
     socket.join(routeId);
   });
@@ -32,6 +43,7 @@ io.on('connection', function (socket) {
   // when the route starts, emits 'driver location updated' every 'n' seconds
   socket.on('update driver location', function (location) {
     // console.log('update driver location');
+    // console.log(location);
     if(location) { // Only driver has a location
       // echo globally that a driver has changed location
       io.sockets.in(routeId).emit('driver location updated', location);
